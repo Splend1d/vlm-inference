@@ -36,14 +36,16 @@ def get_answer_from_messages(messages, model, processor, choices):
     #input()
 
     # Inference: Generation of the output
-    #print(inputs)
-    generated_ids = model.generate(**inputs, max_new_tokens=128)
+    print(inputs["input_ids"].shape)
+    generated_ids = model.generate(**inputs, max_new_tokens=1024)
 
     output_text = processor.batch_decode(
-        generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        generated_ids[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
     #print(output_text)
 
+    #follow_up_question = "Now, rewrite the final answer in the most concise way:"
+    
     messages.extend(
         [{
             "role": "assistant",
@@ -54,7 +56,7 @@ def get_answer_from_messages(messages, model, processor, choices):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Output the correct answer in letter:"},
+                {"type": "text", "text": "Now, output the final answer and nothing else:"},
             ],
         }]
         
@@ -64,15 +66,32 @@ def get_answer_from_messages(messages, model, processor, choices):
 
 
     inputs = get_inputs_from_messages(messages, processor)
+    if len(choices):
+        last_logits = model(**inputs, return_dict = True).logits[:,-1]
+        logging.info(last_logits.shape)
+        #choices_idx = processor.tokenizer.tokenize(choices)
+        #logging.info(choices_idx)
+        
+        
+        choices_ids = torch.LongTensor(processor.tokenizer.convert_tokens_to_ids(choices)).to(last_logits.device)
 
-    last_logits = model(**inputs, return_dict = True).logits[:,-1]
-    logging.info(last_logits.shape)
-    #choices_idx = processor.tokenizer.tokenize(choices)
-    #logging.info(choices_idx)
+        select = torch.argmax(last_logits[:,choices_ids]).item()
+        final_answer = choices[select]
+    else:
+        generated_ids = model.generate(**inputs, max_new_tokens=20)
+
+        final_answer = processor.batch_decode(
+            generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0]
+
+    messages.append(
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": final_answer},
+            ],
+        }
+        
+    )
     
-    
-    choices_ids = torch.LongTensor(processor.tokenizer.convert_tokens_to_ids(choices)).to(last_logits.device)
-
-    select = torch.argmax(last_logits[:,choices_ids]).item()
-
-    return choices[select]
+    return final_answer, messages
