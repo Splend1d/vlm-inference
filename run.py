@@ -3,8 +3,16 @@ from qwen_vl_utils import process_vision_info
 import inference_qwen_cot_summurize
 import torch
 # default: Load the model on the available device(s)
+import logging
 
-model_name = "Qwen/Qwen2-VL-2B"
+# Configure the logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(filename)s - Line: %(lineno)d - %(funcName)s() - %(message)s'
+)
+
+
+model_name = "Qwen/QVQ-72B-Preview"
 model = Qwen2VLForConditionalGeneration.from_pretrained(
     model_name, torch_dtype=torch.bfloat16, device_map="auto"
 )
@@ -42,3 +50,5 @@ messages = [
 
 # Preparation for inference
 answer = inference_qwen_cot_summurize.get_answer_from_messages(messages, model, processor, ["A","B","C","D"])
+
+logging.info("Final Answer",answer)
