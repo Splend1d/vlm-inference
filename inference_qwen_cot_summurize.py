@@ -1,5 +1,6 @@
 from qwen_vl_utils import process_vision_info
 import logging
+import torch
 
 # Configure the logger
 logging.basicConfig(
@@ -24,6 +25,7 @@ def get_inputs_from_messages(messages, processor):
     #print(text, inputs)
     return inputs
 
+@torch.no_grad()
 def get_answer_from_messages(messages, model, processor, choices):
     inputs = get_inputs_from_messages(messages, processor)
     inputs = inputs.to(model.device)
@@ -64,8 +66,12 @@ def get_answer_from_messages(messages, model, processor, choices):
     inputs = get_inputs_from_messages(messages, processor)
 
     last_logits = model(**inputs, return_dict = True).logits[:,-1]
-
-    choices_ids = torch.LongTensor(processer.tokenize(choices)).to(model.device)
+    logging.info(last_logits.shape)
+    #choices_idx = processor.tokenizer.tokenize(choices)
+    #logging.info(choices_idx)
+    
+    
+    choices_ids = torch.LongTensor(processor.tokenizer.convert_tokens_to_ids(choices)).to(last_logits.device)
 
     select = torch.argmax(last_logits[:,choices_ids]).item()
 

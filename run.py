@@ -28,6 +28,9 @@ model = Qwen2VLForConditionalGeneration.from_pretrained(
 # default processer
 processor = AutoProcessor.from_pretrained("Qwen/QVQ-72B-Preview")
 print(processor)
+#choices_idx = processor.tokenizer.convert_tokens_to_ids(["A","B","C","D"])
+#print(choices_idx)
+#input("test")
 
 # The default range for the number of visual tokens per image in the model is 4-16384.
 # You can set min_pixels and max_pixels according to your needs, such as a token range of 256-1280, to balance performance and cost.
@@ -51,4 +54,4 @@ messages = [
 # Preparation for inference
 answer = inference_qwen_cot_summurize.get_answer_from_messages(messages, model, processor, ["A","B","C","D"])
 
-logging.info("Final Answer",answer)
+logging.info("Final Answer " + answer)
