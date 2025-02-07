@@ -34,89 +34,26 @@ mmmu_images = []
 
 @torch.no_grad()
 def get_descriptive(example):
-
+    
     result_dir = f"data/MMMU_descriptive"
-    os.makedirs(result_dir, exist_ok = True)
     example["str_id"] = example["id"]
     str_id = example["str_id"]
     file_path = os.path.join(result_dir, f"{str_id}.json")
-    if os.path.exists(file_path):
-        return example
-    
-    meta_prompt = "You are an agent that will describe an image throughly, given an image and a question to answer." \
-    "After this, a blind person who is very good at reasoning will answer the question based on your description. " \
-    "The descrption should be verbose enough to answer the question without the original image." \
-    "For example, if the image is a diagram and the question asks about the details of the standard procedure, you should try to recreate the diagram with output text" \
-    "But if the question is asking about the color of a component, you just have to describe colors of the component." \
-    "Whenever a statement is not related to the visual clue, such as doing math after getting some numbers out from a table, you can leave it to the blind person don't have to output that" \
-    "You can provide the answer if the question is very visual and there is no good way to describe it"
-    
-    meta_prompt = "Describe the image as detailed as possible, such that the following QUESTION can be answered solely based on your description without the actual image. Any reasoning that is only dependent on the description and not the image, can be omitted. It is ok if the description already contains the answer."
-    meta_prompt_after = "Describe the image as detailed as possible, such that the QUESTION above can be answered solely based on your description without the actual image. Any reasoning that is only dependent on the description and not the image, can be omitted. It is ok if the description already contains the answer."
-    question = meta_prompt+ "\n\n***START of QUESTION***\n"+example['question']
-    for n, option in enumerate(eval(example["options"])):
-        question += f"{chr(ord('A')+n)}. {option}\n"
-        
-    question += "\n***END of QUESTION***\n\n"
-    question += meta_prompt_after
-    
-    content = []
-    for image_id in [1,2,3,4,5,6,7]:
-        if example[f"image_{image_id}"] is not None:
-            cur_image_max_dim = max(example[f"image_{image_id}"].size)
-            shrink_factor = max(cur_image_max_dim / IMAGE_MAX_DIM, 1)
-            if shrink_factor != 1:
-                example[f"image_{image_id}"] = example[f"image_{image_id}"].resize((int(example[f"image_{image_id}"].size[0]//shrink_factor), int(example[f"image_{image_id}"].size[1]//shrink_factor)))
-                print("image resized",  example['id'])
-            content.append({"type": "image", "image": example[f"image_{image_id}"]})
-    content.append({"type": "text", "text": question})
-    
-    messages = [
-        {
-            "role": "user",
-            "content": content
-        }
-    ]
-    print(question)
-    print(messages)
-    
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    #print(messages,text)
-    
-    image_inputs, video_inputs = process_vision_info(messages)
-    inputs = processor(
-        text=[text],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    )
-    
-    inputs = inputs.to(model.device)
-    print(inputs["input_ids"].shape)
-    generated_ids = model.generate(**inputs, max_new_tokens=4096)
-    print(generated_ids)
 
-    output_text = processor.batch_decode(
-        generated_ids[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=False
-    )[0]
-    print(output_text)
-    #input("pause")
+    with open(file_path, 'r') as json_file:
+        js = json.loads(json_file.read())
+    #print(js)
+    example['description'] = js["description"]
     
-
-    
-    with open(file_path, 'w') as json_file:
-        json.dump({"question": example['question'], 
-                    "options": example['options'], 
-                    "id": example["id"],
-                    "description": output_text}, json_file, indent=4)
                 
     return example
 random.shuffle(subjects)
-for subject in subjects:
-    mmmu = load_dataset("MMMU/MMMU", subject, keep_in_memory=True)["validation"]  # Load all available configurations
+for subject in ["Music"]:# + subjects:
+    #mmmu = load_dataset("MMMU/MMMU", subject, keep_in_memory=True)["validation"]  # Load all available configurations
+    mmmu = load_dataset("HuggingFaceM4/MMMU", keep_in_memory=True)["validation"]  # Load all available configurations
+    def is_music(example):
+        return example["id"].startswith("validation_Music")
+    mmmu = mmmu.filter(is_music)
     #mmmu = mmmu.shuffle(seed=int(time.time()))
     # messages = [
     #     {
@@ -131,6 +68,17 @@ for subject in subjects:
     #     }
     # ]
     mmmu = mmmu.map(get_descriptive, num_proc=1)
+    #mmmu.push_to_hub("Splend1dchan/MMMU_descriptive")
+
+    dataset_dict = DatasetDict({"validation": mmmu})
+    # Save the modified dataset to Hugging Face DatasetDict with a random subset name
+    # dataset_name = f"Splend1dchan/MMLU_visual_noise"
+    print("saving",subject)
+    #if subject not in done:
+    print("***\n\n\n")
+    print("uploading",subject)
+    print("\n\n\n***")
+    dataset_dict.push_to_hub("Splend1dchan/MMMU_descriptive", subject)
         
 
 
