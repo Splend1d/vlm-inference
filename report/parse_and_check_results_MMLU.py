@@ -16,7 +16,9 @@ logging.basicConfig(
 exp_names = ["inference_Qwen2-1.5B-Instruct_cot_summurize", "inference_Qwen2-VL-2B-Instruct_cot_summarize", \
     "inference_Qwen2-7B-Instruct_cot_summurize", "inference_Qwen2-VL-7B-Instruct_cot_summarize", \
     "inference_deepseek-moe-16b-chat_cot_summurize", "inference_deepseek-vl2-small_cot_summurize", \
-    "inference_deepseek-llm-7b-chat_cot_summurize", "inference_deepseek-vl-7b-chat_cot_summurize"
+    "inference_deepseek-llm-7b-chat_cot_summurize", "inference_deepseek-vl-7b-chat_cot_summurize", \
+    "inference_QVQ-72B-Preview_cot_summurize", "inference_Qwen2-VL-72B-Instruct_cot_summurize", \
+    "inference_Qwen2-72B-Instruct_cot_summurize", "inference_QWQ-32B-Preview_cot_summurize"
 ]
 dataset_name = "cais/mmlu"
 
@@ -80,9 +82,11 @@ for exp_name in exp_names:
     # Print table footer
     
     print("|" + "-" * (col1_width) + "|" + "-" * (col2_width) + "|" + "-" * (col3_width) + "|")
-    
-    print("Avg:", sum(main_cat_accs) / len(main_cat_accs))
-
+    try:
+        print("Avg:", sum(main_cat_accs) / len(main_cat_accs))
+    except:
+        print("Not Evaluated Yet")
+    print("Evaluated Samples:",sum(n_total.values()))
     print("=" * (col1_width + col2_width + col3_width + 6) + "\n")
 
         
