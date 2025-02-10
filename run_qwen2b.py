@@ -3,14 +3,15 @@ import os
 import subprocess
 import logging
 import random 
-from transformers import Qwen2VLForConditionalGeneration, AutoProcessor, AutoModelForCausalLM
+from transformers import Qwen2_5_VLForConditionalGeneration, Qwen2VLForConditionalGeneration, AutoProcessor, AutoModelForCausalLM
 #from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
 from datasets import load_dataset, get_dataset_config_names
 import torch
 import json
+import time
 
 from inference_qwen_cot_summurize import get_answer_from_messages_qwen, get_answer_from_messages_deepseek
-from data import parse_MMMU, parse_MMLU, parse_gpqa
+from data import parse_MMMU, parse_MMMU2, parse_MMLU, parse_gpqa
 from json_utils import make_serializable
 
 # Configure the logger
@@ -28,6 +29,13 @@ DATASET_CONFIG = {
         "options_key": "options_for_logits_compare",
         "messages_key": "messages"
     },
+    "data/MMMU_local": {
+        "split": "validation",
+        "subsets": ["__ALL__"],
+        "dataset_preprocess_fn": "parse_MMMU2",  # Replace with actual function if needed
+        "options_key": "options_for_logits_compare",
+        "messages_key": "messages"
+    },
     "cais/mmlu": {
         "split": "test",
         "subsets": ["all"],
@@ -41,23 +49,58 @@ DATASET_CONFIG = {
         "dataset_preprocess_fn": "parse_gpqa",  # Replace with actual function if needed
         "options_key": "options_for_logits_compare",
         "messages_key": "messages"
+    },
+    "Splend1dchan/gpqa_diamond_visual_noise": {
+        "split": "test",
+        "subsets": ["random_noise"],
+        "dataset_preprocess_fn": "parse_gpqa_diamond_visual_noise",  # Replace with actual function if needed
+        "options_key": "options_for_logits_compare",
+        "messages_key": "messages"
+    },
+    "Splend1dchan/MMMU_descriptive": {
+        "split": "validation",
+        "subsets": ["__ALL__"],
+        "dataset_preprocess_fn": "parse_MMMU_descriptive",  # Replace with actual function if needed
+        "options_key": "options_for_logits_compare",
+        "messages_key": "messages"
+    },
+    "data/MMMU_descriptive_Qwen2.5-VL-72B-Instruct": {
+        "split": "validation",
+        "subsets": ["__ALL__"],
+        "dataset_preprocess_fn": "parse_MMMU_descriptive",  # Replace with actual function if needed
+        "options_key": "options_for_logits_compare",
+        "messages_key": "messages"
+    },
+    "data/MMMU_descriptive": {
+        "split": "validation",
+        "subsets": ["__ALL__"],
+        "dataset_preprocess_fn": "parse_MMMU_descriptive",  # Replace with actual function if needed
+        "options_key": "options_for_logits_compare",
+        "messages_key": "messages"
     }
 }
 
 MESSAGE_PREPROCESS_CONFIG = {
     "Qwen2": get_answer_from_messages_qwen,
+    "QVQ": get_answer_from_messages_qwen,
     "deepseek": get_answer_from_messages_deepseek
 }
 
 PREPROCESSOR_OVERRIDE = {
     "Qwen/Qwen2-7B-Instruct": "Qwen/Qwen2-VL-7B-Instruct",
+    "Qwen/Qwen2-72B-Instruct": "Qwen/Qwen2-VL-72B-Instruct",
+    "Qwen/QWQ-32B-Preview": "Qwen/Qwen2-VL-72B-Instruct",
     "Qwen/Qwen2-1.5B-Instruct": "Qwen/Qwen2-VL-2B-Instruct",
     "deepseek-ai/deepseek-moe-16b-chat": "deepseek-ai/deepseek-vl2-small",
 }
 
 # Load model and processor
 def load_model_and_processor(model_name, device_map):
-    if "Qwen2-VL" in model_name:
+    if "Qwen2.5-VL" in model_name:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16, device_map=device_map
+        )
+    elif "Qwen2-VL" in model_name or "QVQ" in model_name:
         model = Qwen2VLForConditionalGeneration.from_pretrained(
             model_name, torch_dtype=torch.bfloat16, device_map=device_map
         )
@@ -104,21 +147,29 @@ def run_inference_on_dataset(
     
 
     subsets = get_dataset_config_names(dataset_name)
-    if dataset_config["subsets"] == "__ALL__":
+    print(dataset_config["subsets"])
+    if dataset_config["subsets"] == ["__ALL__"]:
         pass
     else:
         for subset in dataset_config["subsets"]:
             assert subset in subsets, f"Subset name not found: {subset}"
         subsets = dataset_config["subsets"]
     
+    random.shuffle(subsets)
     for subset in subsets:
         logging.info(f"Processing subset: {subset}")
 
         result_dir = f"results/{exp_name}/{dataset_name.split('/')[-1]}/{subset}"
         os.makedirs(result_dir, exist_ok=True)
-
-        ds = load_dataset(dataset_name, subset, split=dataset_config["split"], keep_in_memory=True)
+        
+        ds = load_dataset(dataset_name, subset, split=dataset_config["split"], cache_dir=None)
         ds = ds.map(dataset_preprocess_fn, num_proc=1)
+        #print(dataset_preprocess_fn)
+        
+        if "mmlu" in dataset_name:
+            cur_time = int(time.time())
+            ds = ds.shuffle(seed=cur_time)
+            print("shuffling dataset, seed=",cur_time)
 
         for data in ds:
             str_id = data["str_id"]

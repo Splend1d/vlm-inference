@@ -40,7 +40,7 @@ def get_answer_from_messages_qwen(messages, model, processor, choices):
     # print(inputs["input_ids"])
     # print(inputs["attention_mask"])
     # print(model.device)
-    generated_ids = model.generate(**inputs, max_new_tokens=1024)
+    generated_ids = model.generate(**inputs, max_new_tokens=4096)
     print(generated_ids)
 
     output_text = processor.batch_decode(
@@ -109,7 +109,7 @@ def get_answer_from_messages_qwen(messages, model, processor, choices):
     return final_answer, messages
 
 
-from deepseek_vl.utils.io import load_pil_images
+#from deepseek_vl.utils.io import load_pil_images
 
 def get_inputs_from_messages_deepseek(messages, processor, prepend_messages=None):
     
