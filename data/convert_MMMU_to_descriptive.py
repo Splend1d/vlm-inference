@@ -10,11 +10,11 @@ from qwen_vl_utils import process_vision_info
 
 IMAGE_MAX_DIM = 1000
 
-model_name = "Qwen/Qwen2-VL-72B-Instruct"
-model = Qwen2VLForConditionalGeneration.from_pretrained(
-    model_name, torch_dtype=torch.bfloat16, device_map="auto"
-)
-model = model.eval()
+# model_name = "Qwen/Qwen2-VL-72B-Instruct"
+# model = Qwen2VLForConditionalGeneration.from_pretrained(
+#     model_name, torch_dtype=torch.bfloat16, device_map="auto"
+# )
+# model = model.eval()
 
 # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
 # model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -25,7 +25,7 @@ model = model.eval()
 # )
 
 # default processer
-processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-72B-Instruct")
+#  processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-72B-Instruct")
 
 
 # Load MMMU dataset (all available configs)
@@ -35,7 +35,7 @@ mmmu_images = []
 @torch.no_grad()
 def get_descriptive(example):
     
-    result_dir = f"data/MMMU_descriptive"
+    result_dir = f"data/MMMU_generated_descriptions_Qwen2.5-VL-72B-Instruct"
     example["str_id"] = example["id"]
     str_id = example["str_id"]
     file_path = os.path.join(result_dir, f"{str_id}.json")
@@ -48,12 +48,12 @@ def get_descriptive(example):
                 
     return example
 random.shuffle(subjects)
-for subject in ["Music"]:# + subjects:
+for subject in subjects:
     #mmmu = load_dataset("MMMU/MMMU", subject, keep_in_memory=True)["validation"]  # Load all available configurations
-    mmmu = load_dataset("HuggingFaceM4/MMMU", keep_in_memory=True)["validation"]  # Load all available configurations
-    def is_music(example):
-        return example["id"].startswith("validation_Music")
-    mmmu = mmmu.filter(is_music)
+    mmmu = load_dataset("data/MMMU_local", keep_in_memory=True)["validation"]  # Load all available configurations
+    #def is_music(example):
+    #    return example["id"].startswith("validation_Music")
+    #mmmu = mmmu.filter(is_music)
     #mmmu = mmmu.shuffle(seed=int(time.time()))
     # messages = [
     #     {
@@ -78,7 +78,7 @@ for subject in ["Music"]:# + subjects:
     print("***\n\n\n")
     print("uploading",subject)
     print("\n\n\n***")
-    dataset_dict.push_to_hub("Splend1dchan/MMMU_descriptive", subject)
+    dataset_dict.push_to_hub("Splend1dchan/MMMU_descriptive_Qwen2.5-VL-72B-Instruct", subject)
         
 
 
